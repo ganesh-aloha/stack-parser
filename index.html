@@ -1,126 +1,128 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Breadcrumb Visualizer</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Google+Sans+Display:wght@400;500;700&family=Google+Sans:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+  <meta
+    name="description"
+    content="Inspect Android and iOS crash JSON and view formatted stack traces."
+  />
+
+  <title>Crash Stack Trace Viewer</title>
+
+  <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
+  <main class="app">
 
-<!-- Top App Bar -->
-<header class="top-app-bar">
-  <div class="top-app-bar-inner">
-    <div class="top-app-bar-leading">
-      <div class="app-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          <circle cx="7" cy="6" r="2" fill="currentColor"/>
-          <circle cx="12" cy="12" r="2" fill="currentColor"/>
-          <circle cx="17" cy="18" r="2" fill="currentColor"/>
-        </svg>
+    <header class="app-header">
+      <div>
+        <h1>Crash Stack Trace Viewer</h1>
+        <p>Paste crash JSON to inspect application and thread stack traces.</p>
       </div>
-      <div class="top-app-bar-titles">
-        <span class="app-bar-headline">Breadcrumb Visualizer</span>
-        <span class="app-bar-sub">Crash Report Inspector</span>
-      </div>
-    </div>
-  </div>
-</header>
+    </header>
 
-<main class="layout">
+    <section class="card editor-card" aria-labelledby="jsonHeading">
+      <div class="section-header">
+        <div>
+          <h2 id="jsonHeading">Crash JSON</h2>
+          <p>Paste the crash report JSON below.</p>
+        </div>
 
-  <!-- Input Card -->
-  <div class="md-card input-card">
-    <div class="card-header-row">
-      <span class="card-label">Paste Error Payload</span>
-      <span class="card-hint">Ctrl/Cmd + Enter to visualize</span>
-    </div>
-    <div class="textarea-container">
-      <textarea id="jsonInput" placeholder="Paste your crash report JSON here — full payload or raw breadcrumb array..."></textarea>
-    </div>
-    <div class="card-footer">
-      <span class="error-msg" id="errorMsg"></span>
-      <div class="card-actions">
-        <button class="md-btn text-btn" onclick="clearAll()">Clear</button>
-        <button class="md-btn filled-btn" onclick="parseAndRender()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <path d="M5 3l14 9-14 9V3z" fill="currentColor"/>
-          </svg>
-          Visualize
+        <button
+          id="exampleBtn"
+          class="btn btn-secondary"
+          type="button"
+        >
+          Load Example
         </button>
       </div>
-    </div>
-  </div>
 
-  <!-- Stats -->
-  <div class="stats-grid hidden" id="statsRow">
-    <div class="stat-card">
-      <span class="stat-num" id="statTotal">—</span>
-      <span class="stat-label">Total Events</span>
-    </div>
-    <div class="stat-card">
-      <span class="stat-num" id="statDuration">—</span>
-      <span class="stat-label">Session Duration</span>
-    </div>
-    <div class="stat-card">
-      <span class="stat-num" id="statScreens">—</span>
-      <span class="stat-label">Screens Visited</span>
-    </div>
-    <div class="stat-card">
-      <span class="stat-num" id="statNetwork">—</span>
-      <span class="stat-label">Network Calls</span>
-    </div>
-    <div class="stat-card">
-      <span class="stat-num" id="statUser">—</span>
-      <span class="stat-label">User Actions</span>
-    </div>
-  </div>
+      <textarea
+        id="jsonInput"
+        spellcheck="false"
+        autocomplete="off"
+        aria-label="Crash report JSON"
+        placeholder="Paste crash JSON here..."
+      ></textarea>
 
-  <!-- Controls -->
-  <div class="controls-bar hidden" id="controls">
-    <div class="filter-chips" id="filterChips"></div>
-    <div class="sort-controls">
-      <span class="sort-label">Sort</span>
-      <div class="segmented-buttons">
-        <button class="seg-btn active" id="sortAsc" onclick="setSort('asc')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          Oldest first
-        </button>
-        <button class="seg-btn" id="sortDesc" onclick="setSort('desc')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          Newest first
-        </button>
+      <div class="editor-footer">
+        <span
+          id="jsonStatus"
+          class="status"
+          role="status"
+          aria-live="polite"
+        >
+          Ready
+        </span>
+
+        <div class="actions">
+          <button
+            id="clearBtn"
+            class="btn btn-secondary"
+            type="button"
+          >
+            Clear
+          </button>
+
+          <button
+            id="formatBtn"
+            class="btn btn-primary"
+            type="button"
+          >
+            Format Stack Trace
+          </button>
+        </div>
       </div>
-    </div>
-  </div>
+    </section>
 
-  <!-- Timeline -->
-  <div class="timeline-section hidden" id="timelineWrap">
-    <div class="timeline-top-bar">
-      <span class="timeline-heading">Event Timeline</span>
-      <span class="result-count" id="resultCount"></span>
-    </div>
-    <div class="timeline" id="timeline"></div>
-    <div class="empty-state hidden" id="emptyState">
-      <svg class="empty-icon" width="52" height="52" viewBox="0 0 24 24" fill="none">
-        <circle cx="11" cy="11" r="7.5" stroke="currentColor" stroke-width="1.4"/>
-        <path d="m21 21-4.5-4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-        <path d="M8 11h6M11 8v6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-      </svg>
-      <span class="empty-title">No matching events</span>
-      <span class="empty-sub">Enable more filter chips above to see results</span>
-    </div>
-  </div>
+    <div
+      id="errorMessage"
+      class="error-message hidden"
+      role="alert"
+    ></div>
 
-</main>
+    <section
+      id="result"
+      class="card result-card hidden"
+      aria-labelledby="resultHeading"
+    >
+      <div class="result-header">
+        <div>
+          <h2 id="resultHeading">Crash Details</h2>
+          <p>Application and thread information</p>
+        </div>
 
-<script src="app.js"></script>
+        <div class="result-actions">
+          <button
+            id="expandAllBtn"
+            class="btn btn-secondary"
+            type="button"
+          >
+            Expand All
+          </button>
+
+          <button
+            id="collapseAllBtn"
+            class="btn btn-secondary"
+            type="button"
+          >
+            Collapse All
+          </button>
+        </div>
+      </div>
+
+      <div id="meta" class="meta-grid"></div>
+
+      <div id="threads" class="thread-list"></div>
+    </section>
+
+  </main>
+
+  <script src="app.js"></script>
 </body>
 </html>
