@@ -263,11 +263,7 @@ function hideError() {
 
 
 /* =========================================
-   RENDER METADATA
-========================================= */
-
-/* =========================================
-   FORMAT EPOCH DATE
+   EPOCH DATE FORMATTER
 ========================================= */
 
 function formatEpochDate(value) {
@@ -279,39 +275,99 @@ function formatEpochDate(value) {
   const numericValue = Number(value);
 
   if (!Number.isFinite(numericValue)) {
-    return String(value);
+    return "—";
   }
 
-  // Support both epoch seconds and epoch milliseconds.
   const milliseconds =
-    Math.abs(numericValue) < 100000000000
+    numericValue < 100000000000
       ? numericValue * 1000
       : numericValue;
 
   const date = new Date(milliseconds);
 
   if (Number.isNaN(date.getTime())) {
-    return String(value);
+    return "—";
   }
 
-  const weekdays = [
-    "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
-  ];
+  const parts = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true
+  }).formatToParts(date);
 
-  const months = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"
-  ];
+  const get = (type) =>
+    parts.find((part) => part.type === type)?.value || "";
 
-  const hours = date.getHours();
-  const hour12 = hours % 12 || 12;
-  const period = hours >= 12 ? "PM" : "AM";
+  const month =
+    get("month") === "Sep"
+      ? "Sept"
+      : get("month");
 
-  const pad = (number) =>
-    String(number).padStart(2, "0");
-
-  return `${weekdays[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()} at ${pad(hour12)}:${pad(date.getMinutes())}:${pad(date.getSeconds())} ${period}`;
+  return `${get("weekday")}, ${get("day")} ${month} ${get("year")} at ${get("hour")}:${get("minute")}:${get("second")} ${get("dayPeriod")}`;
 }
+
+
+/* =========================================
+   PARSE CRASH PAYLOAD
+========================================= */
+
+function parseJsonString(value, name) {
+
+  if (value === null || value === undefined || value === "") {
+    return {};
+  }
+
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    throw new Error(`Unable to parse ${name} JSON string.`);
+  }
+}
+
+
+function parseCrashPayload(data) {
+
+  const nativeApp = data?.NATIVEAPP || {};
+
+  const eMeta =
+    parseJsonString(
+      nativeApp.eMeta,
+      "eMeta"
+    );
+
+  const stackTrace =
+    parseJsonString(
+      nativeApp.stackTrace,
+      "stackTrace"
+    );
+
+  return {
+    meta: {
+      appId: eMeta?.appId || "",
+      version: nativeApp.appVersion || "",
+      platform: eMeta?.platform || "",
+      deviceType: eMeta?.deviceType || "",
+      date: data?.time || ""
+    },
+    threads: Array.isArray(stackTrace?.threads)
+      ? stackTrace.threads
+      : []
+  };
+}
+
+
+/* =========================================
+   RENDER METADATA
+========================================= */
 
 function renderMeta(data) {
 
@@ -405,6 +461,21 @@ function renderMeta(data) {
     <div class="meta-card">
 
       <span class="meta-label">
+        Device Type
+      </span>
+
+      <span class="meta-value">
+        ${escapeHtml(
+          metadata.deviceType || "—"
+        )}
+      </span>
+
+    </div>
+
+
+    <div class="meta-card">
+
+      <span class="meta-label">
         Date
       </span>
 
@@ -478,8 +549,8 @@ function renderStackFrame(
     showNumbers &&
     typeof frame === "object" &&
     frame !== null &&
-    Number.isInteger(Number(frame.i))
-      ? Number(frame.i)
+    frame.i !== undefined
+      ? frame.i
       : index;
 
   const numberHtml =
@@ -769,16 +840,27 @@ function formatStackTrace() {
 
 
   /*
-   * Threads validation
+   * Parse the nested crash payload.
+   *
+   * The final payload stores:
+   * - NATIVEAPP.eMeta as a JSON string
+   * - NATIVEAPP.stackTrace as a JSON string
+   * - time as the root epoch value
    */
 
-  if (
-    data.threads !== undefined &&
-    !Array.isArray(data.threads)
-  ) {
+  let viewerData;
+
+  try {
+
+    viewerData =
+      parseCrashPayload(data);
+
+  } catch (error) {
 
     showError(
-      'Invalid format: "threads" must be an array.'
+      error instanceof Error
+        ? error.message
+        : "Unable to parse crash payload."
     );
 
     return;
@@ -789,7 +871,7 @@ function formatStackTrace() {
    * Render application information.
    */
 
-  renderMeta(data);
+  renderMeta(viewerData);
 
 
   /*
@@ -797,8 +879,8 @@ function formatStackTrace() {
    */
 
   renderThreads(
-    data.threads || [],
-    data
+    viewerData.threads,
+    viewerData
   );
 
 
@@ -824,8 +906,8 @@ function formatStackTrace() {
 
 
   const count =
-    Array.isArray(data.threads)
-      ? data.threads.length
+    Array.isArray(viewerData.threads)
+      ? viewerData.threads.length
       : 0;
 
 
@@ -874,29 +956,35 @@ function clearAll() {
 
 function loadExample() {
 
-  jsonInput.value =
-    JSON.stringify(
-      exampleData,
-      null,
-      2
-    );
+  const examplePayload = {
+    time: "1788964742106",
+    NATIVEAPP: {
+      appVersion: "2.19.8",
+      netState: "wifi",
+      sdkId: "btt-android-sdk",
+      eMeta: JSON.stringify({
+        appId: "com.bluetriangle.android.demo",
+        platform: "Android",
+        deviceType: "Google sdk_gphone16k_arm64"
+      }),
+      deviceModel: "sdk_gphone16k_arm64",
+      sdkVersion: "2.19.8",
+      stackTrace: JSON.stringify({
+        meta: { fVersion: "1.0.0" },
+        threads: exampleData.threads.map((thread) => ({
+          ...thread,
+          stack: thread.stack.map((frame, index) => ({
+            i: frame.i ?? index,
+            fLine: frame.fLine
+          }))
+        }))
+      })
+    }
+  };
 
-
-  hideError();
-
-  setStatus(
-    "Example loaded",
-    "success"
-  );
-
-
-  /*
-   * Automatically display example.
-   */
-
+  jsonInput.value = JSON.stringify(examplePayload, null, 2);
   formatStackTrace();
 }
-
 
 /* =========================================
    EXPAND ALL
