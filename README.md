@@ -1,1 +1,1 @@
-Browse application at [https://ganesh-aloha.github.io/breadcrumb-viewer/](https://ganesh-aloha.github.io/stack-parser/)
+Browse application at [https://ganesh-aloha.github.io/stack-parser/](https://ganesh-aloha.github.io/stack-parser/)
