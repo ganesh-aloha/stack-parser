@@ -644,13 +644,11 @@ body {
   overflow-wrap: anywhere;
 }
 
-
 .cause-label {
   color: #667085;
   font-weight: 700;
   white-space: nowrap;
 }
-
 
 .cause-text {
   min-width: 0;
